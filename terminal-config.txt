@@ -1,0 +1,76 @@
+#!/bin/zsh
+# Drop into '~/.zshrc' then run 'source ~/.zshrc' to enable.
+# This script customizes the terminal prompt to display the current time, user name, working directory, and the current Git branch with status indicators.
+# The user name is color-coded, and the Git branch name is updated based on its status (modified, added, deleted files).
+# The prompt gets updated automatically before each command using the precmd hook.
+
+# Function to parse and display the current Git branch, with color-coded status indicators.
+# - "*" indicates modified files.
+# - "+" indicates added or untracked files.
+# - "-" indicates deleted files.
+parse_git_branch() {
+  local branch=""
+  # Get the current Git branch name.
+  branch=$(git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/\1/')
+  
+  # Get the current Git status in a simple format.
+  local git_status=$(git status --porcelain 2>/dev/null)
+  local color=green  # Default color is green (clean state).
+  
+  # If there are modified files, change color to yellow and append "*" to the branch name.
+  if echo "$git_status" | grep -q "^ M"; then
+    color=yellow
+    branch="${branch}*"
+  fi
+
+  # If there are added or untracked files, append "+" to the branch name.
+  if echo "$git_status" | grep -qE "^ A|^\?\?"; then
+    color=yellow
+    branch="${branch}+"
+  fi
+
+  # If there are deleted files, append "-" to the branch name.
+  if echo "$git_status" | grep -q "^ D"; then
+    color=yellow
+    branch="${branch}-"
+  fi
+
+  # If a branch exists, format it with color.
+  if [[ -n "$branch" ]]; then
+    branch=[%F{${color}}${branch}%F{reset}]
+  fi
+  echo "$branch"  # Return the formatted branch.
+}
+
+# Function to display the username, color-coded based on the user.
+# - If the username is "kameron.kirk", display in teal.
+# - Otherwise, display in red.
+color_user_name() {
+  local username=$USER
+  if [[ $username == "kameron.kirk" ]]; then
+    echo "%F{033}${username}%f"
+  else
+    echo "%F{196}${username}%f"
+  fi
+}
+
+# Function to display the current time in light gray.
+color_time(){
+  echo "%F{007}%D{%H:%M:%S}%f"
+}
+
+# Function to display the current working directory in teal.
+color_dir(){
+  echo "%F{086}%1~%f"
+}
+
+# Function to update the terminal prompt with time, username, directory, and Git branch.
+update_prompt() {
+  PS1="$(color_time) $(color_user_name) $(color_dir)$(parse_git_branch) %# "
+}
+
+# Add the update_prompt function to the precmd hook to run before each command.
+precmd_functions+=(update_prompt)
+
+# Initial prompt update when the shell starts.
+update_prompt
